@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Language, TradingSignal, UserAccount, MT5Config, MT5Position } from '../types';
+import { Language, TradingSignal, UserAccount, MT5Config, MT5Position, TradingViewIndicator } from '../types';
 import { playSignalChime } from '../utils/audio';
 import { TradingViewChart } from './TradingViewChart';
 import { 
@@ -43,6 +43,7 @@ interface VipMemberViewProps {
   isMT5Authorized?: boolean;
   availableVipUsers?: UserAccount[];
   onSelectVipUser?: (userId: string) => void;
+  tvIndicators?: TradingViewIndicator[];
 }
 
 export const VipMemberView: React.FC<VipMemberViewProps> = ({
@@ -59,7 +60,8 @@ export const VipMemberView: React.FC<VipMemberViewProps> = ({
   onManualAutoTrade,
   isMT5Authorized,
   availableVipUsers = [],
-  onSelectVipUser
+  onSelectVipUser,
+  tvIndicators
 }) => {
   const isKm = lang === 'km';
   const hasMT5Clearance = isMT5Authorized ?? (isAdmin || !!currentUser.mt5Allowed);
@@ -622,7 +624,14 @@ export const VipMemberView: React.FC<VipMemberViewProps> = ({
             </div>
           </div>
 
-          <TradingViewChart symbol={selectedChartTicker} timeframe="15m" isAdmin={isAdmin} />
+          <TradingViewChart
+            symbol={selectedChartTicker}
+            timeframe="15m"
+            isAdmin={isAdmin}
+            lang={lang}
+            viewerScope="customer"
+            indicators={tvIndicators}
+          />
         </div>
       )}
 

@@ -129,6 +129,35 @@ export interface WebhookLog {
   }[];
 }
 
+export type TradingViewIndicatorCategory =
+  | 'trend'
+  | 'oscillator'
+  | 'volatility'
+  | 'volume_smc'
+  | 'custom_pine';
+
+export interface TradingViewIndicator {
+  id: string;
+  name: string;
+  nameKm?: string;
+  shortName: string;
+  category: TradingViewIndicatorCategory;
+  tvStudyId?: string;
+  isOverlay: boolean;
+  period?: number;
+  secondaryPeriod?: number;
+  multiplier?: number;
+  source?: 'close' | 'open' | 'high' | 'low' | 'hl2' | 'hlc3' | 'ohlc4';
+  color: string;
+  active: boolean;
+  vipVisible: boolean;
+  pineScript?: string;
+  description?: string;
+  descriptionKm?: string;
+  createdBy: string;
+  createdAt: string;
+}
+
 export interface MT5Config {
   autoTradeEnabled: boolean;
   accountNumber: string;

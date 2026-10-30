@@ -20,7 +20,8 @@ import {
   FinanceLedgerEntry,
   HRRequestItem,
   VideoProductionTask,
-  CustomerRegistrationRecord
+  CustomerRegistrationRecord,
+  TradingViewIndicator
 } from './types';
 import { 
   INITIAL_PLANS, 
@@ -39,6 +40,7 @@ import {
   INITIAL_HR_REQUESTS,
   INITIAL_VIDEO_TASKS,
   INITIAL_CUSTOMER_REGISTRATIONS,
+  INITIAL_TV_INDICATORS,
   POSITION_DEFINITIONS
 } from './data/mockData';
 import { playSignalChime } from './utils/audio';
@@ -153,6 +155,18 @@ export default function App() {
   const [webhookSecret, setWebhookSecret] = useState(DEFAULT_WEBHOOK_CONFIG.secretKey);
   const [duplicateWindowSeconds, setDuplicateWindowSeconds] = useState(DEFAULT_WEBHOOK_CONFIG.duplicateWindowSeconds);
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
+
+  // Administrator TradingView Indicators State
+  const [tvIndicators, setTvIndicators] = useState<TradingViewIndicator[]>(() => {
+    const saved = localStorage.getItem('alphasignal_tv_indicators');
+    if (!saved) return INITIAL_TV_INDICATORS;
+    try {
+      const parsed: TradingViewIndicator[] = JSON.parse(saved);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_TV_INDICATORS;
+    } catch {
+      return INITIAL_TV_INDICATORS;
+    }
+  });
 
   // MT5 Auto-Trading States
   const [mt5Config, setMt5Config] = useState<MT5Config>(() => {
@@ -271,6 +285,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('alphasignal_auto_approve_vip', String(autoApproveEnabled));
   }, [autoApproveEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('alphasignal_tv_indicators', JSON.stringify(tvIndicators));
+  }, [tvIndicators]);
 
   useEffect(() => {
     localStorage.setItem('alphasignal_mt5_config', JSON.stringify(mt5Config));
@@ -603,6 +621,78 @@ export default function App() {
 
   const handleDeleteSignal = (signalId: string) => {
     setSignals(prev => prev.filter(s => s.id !== signalId));
+  };
+
+  // Administrator TradingView Indicator Management Handlers
+  const handleAddTvIndicator = (newInd: Omit<TradingViewIndicator, 'id' | 'createdAt'>) => {
+    const created: TradingViewIndicator = {
+      ...newInd,
+      id: `ind_${Date.now().toString().slice(-6)}_${Math.random().toString(36).slice(2, 5)}`,
+      createdAt: new Date().toISOString().slice(0, 10)
+    };
+    setTvIndicators(prev => [...prev, created]);
+
+    const actor =
+      loggedInStaff && loggedInStaff.position === 'administrator'
+        ? loggedInStaff
+        : {
+            staffCode: 'ADM-001',
+            fullName: 'Master Sovann',
+            position: 'administrator' as StaffPosition
+          };
+    appendStaffLog(
+      actor,
+      `Added TradingView Indicator "${created.shortName}" (${created.name})`,
+      `Administrator បានបន្ថែម Indicator "${created.shortName}" (${created.name}) ចូលក្នុងក្រាហ្វ TradingView`,
+      'SUCCESS'
+    );
+    if (audioEnabled) {
+      playSignalChime('SUCCESS');
+    }
+  };
+
+  const handleUpdateTvIndicator = (id: string, updates: Partial<TradingViewIndicator>) => {
+    const target = tvIndicators.find(i => i.id === id);
+    setTvIndicators(prev => prev.map(i => (i.id === id ? { ...i, ...updates } : i)));
+
+    if (target && (updates.period !== undefined || updates.shortName !== undefined)) {
+      const actor =
+        loggedInStaff && loggedInStaff.position === 'administrator'
+          ? loggedInStaff
+          : {
+              staffCode: 'ADM-001',
+              fullName: 'Master Sovann',
+              position: 'administrator' as StaffPosition
+            };
+      appendStaffLog(
+        actor,
+        `Updated TradingView Indicator "${updates.shortName || target.shortName}" parameters`,
+        `បានកែសម្រួលការកំណត់ Indicator "${updates.shortName || target.shortName}" លើក្រាហ្វ TradingView`,
+        'SUCCESS'
+      );
+    }
+  };
+
+  const handleDeleteTvIndicator = (id: string) => {
+    const target = tvIndicators.find(i => i.id === id);
+    setTvIndicators(prev => prev.filter(i => i.id !== id));
+
+    if (target) {
+      const actor =
+        loggedInStaff && loggedInStaff.position === 'administrator'
+          ? loggedInStaff
+          : {
+              staffCode: 'ADM-001',
+              fullName: 'Master Sovann',
+              position: 'administrator' as StaffPosition
+            };
+      appendStaffLog(
+        actor,
+        `Removed TradingView Indicator "${target.shortName}"`,
+        `បានដក Indicator "${target.shortName}" ចេញពីក្រាហ្វ TradingView`,
+        'SECURITY'
+      );
+    }
   };
 
   // Video Lessons Handlers
@@ -1652,6 +1742,7 @@ export default function App() {
                       isMT5Authorized={isMT5Authorized}
                       availableVipUsers={availableVipUsers}
                       onSelectVipUser={uid => setSimulatedVipUserId(uid)}
+                      tvIndicators={tvIndicators}
                     />
                   ) : (
                     <div className="bg-slate-900 border border-slate-800 rounded-2xl p-10 text-center max-w-2xl mx-auto space-y-4 my-8">
@@ -1947,6 +2038,12 @@ export default function App() {
                   customerRegistrations={customerRegistrations}
                   onAssignRegistrationToStaff={handleAssignRegistrationToStaff}
                   onCompleteStaffCheck={handleCompleteStaffCheck}
+                  tvIndicators={tvIndicators}
+                  onAddTvIndicator={handleAddTvIndicator}
+                  onUpdateTvIndicator={handleUpdateTvIndicator}
+                  onDeleteTvIndicator={handleDeleteTvIndicator}
+                  webhookLogs={webhookLogs}
+                  onAddWebhookLog={handleAddLog}
                   onOpenMemberCheckout={() => {
                     setPortalMode('customer');
                     setIsCustomerAuthOpen(false);
@@ -1998,6 +2095,15 @@ export default function App() {
                   staffAccounts={staffAccounts}
                   onAssignRegistrationToStaff={handleAssignRegistrationToStaff}
                   onCompleteStaffCheck={handleCompleteStaffCheck}
+                  isAdministrator={loggedInStaff.position === 'administrator'}
+                  adminActorLabel={`${loggedInStaff.staffCode} (${loggedInStaff.fullName})`}
+                  nonAdminStaffLabel={`${loggedInStaff.staffCode} · ${POSITION_DEFINITIONS[loggedInStaff.position].shortTitle}`}
+                  tvIndicators={tvIndicators}
+                  onAddTvIndicator={handleAddTvIndicator}
+                  onUpdateTvIndicator={handleUpdateTvIndicator}
+                  onDeleteTvIndicator={handleDeleteTvIndicator}
+                  webhookLogs={webhookLogs}
+                  onAddWebhookLog={handleAddLog}
                 />
               )}
 
@@ -2010,7 +2116,21 @@ export default function App() {
                   recentSignals={signals}
                   logs={webhookLogs}
                   onAddLog={handleAddLog}
-                  isAdmin={true}
+                  isAdmin={loggedInStaff.position === 'administrator'}
+                  indicators={tvIndicators}
+                  onAddIndicator={handleAddTvIndicator}
+                  onUpdateIndicator={handleUpdateTvIndicator}
+                  onDeleteIndicator={handleDeleteTvIndicator}
+                  adminActorLabel={`${loggedInStaff.staffCode} (${loggedInStaff.fullName})`}
+                  nonAdminStaffLabel={`${loggedInStaff.staffCode} · ${POSITION_DEFINITIONS[loggedInStaff.position].shortTitle}`}
+                  onQuickSwitchToAdmin={() => {
+                    const adminAcc = staffAccounts.find(
+                      s => s.position === 'administrator' && s.status === 'active'
+                    );
+                    if (adminAcc) {
+                      handleLoginStaff(adminAcc.staffCode, adminAcc.password, 'administrator');
+                    }
+                  }}
                 />
               )}
             </main>

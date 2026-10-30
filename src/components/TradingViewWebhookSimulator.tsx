@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Language, TradingSignal, WebhookLog } from '../types';
-import { SAMPLE_PINE_SCRIPT } from '../data/mockData';
+import { Language, TradingSignal, WebhookLog, TradingViewIndicator } from '../types';
+import { SAMPLE_PINE_SCRIPT, INITIAL_TV_INDICATORS } from '../data/mockData';
 import { TradingViewChart } from './TradingViewChart';
+import { TradingViewIndicatorModal } from './TradingViewIndicatorModal';
 import { 
   Bell, 
   Send, 
@@ -13,17 +14,14 @@ import {
   AlertTriangle,
   Code2,
   Clock,
-  Settings,
   Sliders,
-  ChevronDown,
   Layers,
   X,
-  Play,
-  RotateCcw,
   CheckCircle2,
   TrendingUp,
-  Maximize2,
-  Lock
+  Lock,
+  Plus,
+  Crown
 } from 'lucide-react';
 
 interface TradingViewWebhookSimulatorProps {
@@ -35,6 +33,13 @@ interface TradingViewWebhookSimulatorProps {
   logs: WebhookLog[];
   onAddLog: (log: WebhookLog) => void;
   isAdmin?: boolean;
+  indicators?: TradingViewIndicator[];
+  onAddIndicator?: (indicator: Omit<TradingViewIndicator, 'id' | 'createdAt'>) => void;
+  onUpdateIndicator?: (id: string, updates: Partial<TradingViewIndicator>) => void;
+  onDeleteIndicator?: (id: string) => void;
+  adminActorLabel?: string;
+  nonAdminStaffLabel?: string;
+  onQuickSwitchToAdmin?: () => void;
 }
 
 export const TradingViewWebhookSimulator: React.FC<TradingViewWebhookSimulatorProps> = ({
@@ -45,9 +50,17 @@ export const TradingViewWebhookSimulator: React.FC<TradingViewWebhookSimulatorPr
   recentSignals,
   logs,
   onAddLog,
-  isAdmin = false
+  isAdmin = false,
+  indicators,
+  onAddIndicator,
+  onUpdateIndicator,
+  onDeleteIndicator,
+  adminActorLabel = 'ADM-001 (Administrator)',
+  nonAdminStaffLabel,
+  onQuickSwitchToAdmin
 }) => {
   const isKm = lang === 'km';
+  const resolvedIndicators = indicators ?? INITIAL_TV_INDICATORS;
 
   // Active Symbol and Timeframe
   const [ticker, setTicker] = useState('XAUUSD');
@@ -81,7 +94,48 @@ export const TradingViewWebhookSimulator: React.FC<TradingViewWebhookSimulatorPr
   } | null>(null);
 
   const [copiedPine, setCopiedPine] = useState(false);
-  const [copiedJson, setCopiedJson] = useState(false);
+  const [isIndicatorModalOpen, setIsIndicatorModalOpen] = useState(false);
+
+  // Interactive Pine Editor Indicator Builder States (Administrator)
+  const [pineTitle, setPineTitle] = useState('AlphaSignal Institutional EMA Cloud v6');
+  const [pineShortName, setPineShortName] = useState('EMA Cloud');
+  const [pineStudyId, setPineStudyId] = useState('STD;EMA');
+  const [pinePeriod, setPinePeriod] = useState<number>(34);
+  const [pineColor, setPineColor] = useState('#089981');
+  const [pineIsOverlay, setPineIsOverlay] = useState(true);
+  const [pineVipVisible, setPineVipVisible] = useState(true);
+  const [pineSourceCode, setPineSourceCode] = useState(SAMPLE_PINE_SCRIPT);
+  const [pineCompiledNotice, setPineCompiledNotice] = useState<string | null>(null);
+
+  const handleCompileAndAddPineIndicator = () => {
+    if (!isAdmin || !onAddIndicator) return;
+    const finalTitle = pineTitle.trim() || 'Admin Pine Indicator';
+    const finalShort = pineShortName.trim() || 'PINE v5';
+    onAddIndicator({
+      name: finalTitle,
+      nameKm: finalTitle,
+      shortName: finalShort,
+      category: 'custom_pine',
+      tvStudyId: pineStudyId || undefined,
+      isOverlay: pineIsOverlay,
+      period: pinePeriod || 20,
+      source: 'close',
+      color: pineColor,
+      active: true,
+      vipVisible: pineVipVisible,
+      pineScript: pineSourceCode,
+      description: 'Compiled and attached via Administrator Pine Script v5 Editor.',
+      descriptionKm: 'បង្កើត និងដាក់បញ្ចូលពី Pine Editor ដោយ Administrator។',
+      createdBy: adminActorLabel
+    });
+    setStrategy(finalTitle);
+    setPineCompiledNotice(
+      isKm
+        ? `បាន Compile និងបន្ថែម Indicator "${finalShort}" ទៅលើក្រាហ្វ TradingView រួចរាល់!`
+        : `Compiled & added "${finalShort}" onto the live TradingView chart!`
+    );
+    setTimeout(() => setPineCompiledNotice(null), 3500);
+  };
 
   // Preset Symbols
   const symbolsList = [
@@ -319,6 +373,29 @@ export const TradingViewWebhookSimulator: React.FC<TradingViewWebhookSimulatorPr
 
   return (
     <div className="space-y-4 bg-[#131722] text-[#d1d4dc] rounded-2xl p-4 sm:p-5 border border-[#2a2e39] shadow-2xl">
+      {/* Administrator vs Non-Admin Role Authority Banner */}
+      {!isAdmin && nonAdminStaffLabel && (
+        <div className="px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-amber-200">
+            <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              {isKm
+                ? `អ្នកកំពុងចូលជា ${nonAdminStaffLabel} — សិទ្ធិបន្ថែម ឬកែប្រែ Indicator លើ TradingView គឺអនុញ្ញាតសម្រាប់តែមុខតំណែង Administrator ប៉ុណ្ណោះ។`
+                : `Signed in as ${nonAdminStaffLabel} — Adding or modifying TradingView Indicators is restricted to Administrators.`}
+            </span>
+          </div>
+          {onQuickSwitchToAdmin && (
+            <button
+              type="button"
+              onClick={onQuickSwitchToAdmin}
+              className="px-3 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs cursor-pointer whitespace-nowrap shrink-0"
+            >
+              {isKm ? 'ប្តូរទៅ Administrator (ADM-001)' : 'Switch to Administrator'}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* 1. TradingView Authentic Top Header Bar */}
       <div className="bg-[#1e222d] border border-[#2a2e39] rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-4">
         {/* Left: TradingView Brand, Symbol Ticker, Timeframes */}
@@ -341,7 +418,7 @@ export const TradingViewWebhookSimulator: React.FC<TradingViewWebhookSimulatorPr
               <button
                 key={s.id}
                 onClick={() => handleSelectSymbol(s.id)}
-                className={`px-2.5 py-1 text-xs font-mono font-bold rounded transition-colors cursor-pointer flex items-center gap-1.5 ${
+                className={`px-2.5 py-1 text-xs font-mono tabular-nums font-bold rounded transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                   ticker === s.id
                     ? 'bg-[#2962ff] text-white shadow-sm'
                     : 'bg-[#131722] text-[#787b86] hover:text-[#d1d4dc] border border-[#2a2e39]'
@@ -361,7 +438,7 @@ export const TradingViewWebhookSimulator: React.FC<TradingViewWebhookSimulatorPr
               <button
                 key={tf}
                 onClick={() => setTimeframe(tf)}
-                className={`px-2 py-0.5 rounded transition-colors ${
+                className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
                   timeframe === tf
                     ? 'bg-[#2a2e39] text-[#2962ff] font-bold'
                     : 'text-[#787b86] hover:text-[#d1d4dc]'
@@ -373,12 +450,36 @@ export const TradingViewWebhookSimulator: React.FC<TradingViewWebhookSimulatorPr
           </div>
         </div>
 
-        {/* Right Actions: Create Alert Button & Fire Webhook */}
-        <div className="flex items-center gap-2">
+        {/* Right Actions: Administrator Add Indicator (fx), Create Alert & Fire Webhook */}
+        <div className="flex flex-wrap items-center gap-2">
+          {isAdmin && onAddIndicator && onUpdateIndicator && onDeleteIndicator ? (
+            <button
+              type="button"
+              onClick={() => setIsIndicatorModalOpen(true)}
+              className="px-3.5 py-1.5 bg-[#089981] hover:bg-[#06806b] text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
+              title="Administrator: Add & Configure TradingView Indicators"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="font-mono">fx</span>
+              <span>{isKm ? 'បន្ថែម Indicator' : 'Add Indicator'}</span>
+              <span className="px-1.5 py-0.2 rounded bg-black/25 font-mono tabular-nums text-[10px]">
+                {resolvedIndicators.filter(i => i.active).length}
+              </span>
+            </button>
+          ) : (
+            <div
+              className="px-3 py-1.5 bg-[#131722] border border-[#2a2e39] text-[#787b86] text-xs rounded-lg flex items-center gap-1.5 whitespace-nowrap shrink-0"
+              title={isKm ? 'សម្រាប់តែ Administrator ប៉ុណ្ណោះ' : 'Administrators only'}
+            >
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+              <span>{isKm ? 'fx Indicators (Admin)' : 'fx Indicators (Admin)'}</span>
+            </div>
+          )}
+
           {/* Authentic TradingView "Alert" Button */}
           <button
             onClick={() => setIsAlertModalOpen(true)}
-            className="px-3.5 py-1.5 bg-[#2a2e39] hover:bg-[#363a45] text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-2 cursor-pointer border border-[#363a45]"
+            className="px-3.5 py-1.5 bg-[#2a2e39] hover:bg-[#363a45] text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-2 cursor-pointer border border-[#363a45] whitespace-nowrap shrink-0"
             title="Open TradingView Alert Settings Dialog"
           >
             <Bell className="w-3.5 h-3.5 text-[#2962ff]" />
@@ -389,7 +490,7 @@ export const TradingViewWebhookSimulator: React.FC<TradingViewWebhookSimulatorPr
           <button
             onClick={handleFireWebhook}
             disabled={executing}
-            className={`px-4 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md ${
+            className={`px-4 py-1.5 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md whitespace-nowrap shrink-0 ${
               executing
                 ? 'bg-[#2a2e39] text-[#787b86] cursor-not-allowed'
                 : 'bg-[#2962ff] hover:bg-[#1e53e5] text-white shadow-[#2962ff]/20'
@@ -407,10 +508,21 @@ export const TradingViewWebhookSimulator: React.FC<TradingViewWebhookSimulatorPr
 
       {/* 2. TradingView Interactive Live Candlestick Chart */}
       <div className="relative">
-        <TradingViewChart symbol={ticker} timeframe={timeframe} isAdmin={isAdmin} />
+        <TradingViewChart
+          symbol={ticker}
+          timeframe={timeframe}
+          isAdmin={isAdmin}
+          lang={lang}
+          viewerScope="management"
+          indicators={resolvedIndicators}
+          onAddIndicator={onAddIndicator}
+          onUpdateIndicator={onUpdateIndicator}
+          onDeleteIndicator={onDeleteIndicator}
+          adminActorLabel={adminActorLabel}
+        />
 
-        {/* Overlay Banner showing simulated Pine Script Alert on chart */}
-        <div className="absolute top-4 right-4 z-10 bg-[#1e222d]/95 backdrop-blur-md border border-[#2a2e39] rounded-xl p-3 shadow-xl max-w-xs text-xs space-y-2 pointer-events-auto">
+        {/* Overlay Banner showing simulated Pine Script Alert on chart (offset below Indicator Bar) */}
+        <div className="hidden md:block absolute top-16 right-4 z-10 bg-[#1e222d]/95 backdrop-blur-md border border-[#2a2e39] rounded-xl p-3 shadow-xl max-w-xs text-xs space-y-2 pointer-events-auto">
           <div className="flex items-center justify-between border-b border-[#2a2e39] pb-1.5">
             <span className="font-mono font-bold text-white flex items-center gap-1.5">
               <span className={`w-2 h-2 rounded-full ${action === 'BUY' ? 'bg-[#089981]' : 'bg-[#f23645]'}`}></span>
@@ -419,7 +531,7 @@ export const TradingViewWebhookSimulator: React.FC<TradingViewWebhookSimulatorPr
             <span className="text-[10px] text-[#787b86] font-mono">{timeframe}</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 font-mono text-[11px]">
+          <div className="grid grid-cols-2 gap-2 font-mono tabular-nums text-[11px]">
             <div>
               <span className="text-[#787b86]">Entry:</span>
               <div className="text-white font-bold">{price}</div>
@@ -440,7 +552,7 @@ export const TradingViewWebhookSimulator: React.FC<TradingViewWebhookSimulatorPr
 
           <button
             onClick={() => setIsAlertModalOpen(true)}
-            className="w-full py-1 bg-[#2962ff]/20 hover:bg-[#2962ff]/30 text-[#2962ff] text-[11px] font-semibold rounded border border-[#2962ff]/40 transition-colors"
+            className="w-full py-1 bg-[#2962ff]/20 hover:bg-[#2962ff]/30 text-[#2962ff] text-[11px] font-semibold rounded border border-[#2962ff]/40 transition-colors cursor-pointer"
           >
             {isKm ? 'កែសម្រួល Alert នេះ' : 'Edit Alert Condition'}
           </button>
@@ -584,31 +696,165 @@ export const TradingViewWebhookSimulator: React.FC<TradingViewWebhookSimulatorPr
           </div>
         )}
 
-        {/* Tab Content 2: Pine Script Editor */}
-        {bottomTab === 'pine_editor' && (
-          <div className="p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-[#787b86] font-mono">
-                TradingView Pine Script v5 Strategy Source Code:
-              </span>
-              <div className="flex items-center gap-2">
+        {/* Tab Content 2: Administrator Interactive Pine Script v5 Indicator Editor */}
+        {bottomTab === 'pine_editor' && isAdmin && (
+          <div className="p-4 space-y-3 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-white font-bold flex items-center gap-2">
+                  <Code2 className="w-4 h-4 text-[#089981]" />
+                  <span>
+                    {isKm
+                      ? 'Pine Script v5 Indicator Editor (Administrator អាចសរសេរ និងបន្ថែមចូលក្រាហ្វផ្ទាល់)'
+                      : 'Pine Script v5 Indicator Builder (Compile & Add to Live Chart)'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#787b86] mt-0.5">
+                  {isKm
+                    ? 'កំណត់ឈ្មោះ, ប្រភេទ Indicator, ពណ៌ និងកូដ Pine Script រួចចុច "បន្ថែមចូលក្រាហ្វ TradingView"'
+                    : 'Configure indicator parameters and Pine Script code, then click Add to Chart'}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {onAddIndicator && (
+                  <button
+                    type="button"
+                    onClick={() => setIsIndicatorModalOpen(true)}
+                    className="px-3 py-1.5 bg-[#2a2e39] hover:bg-[#363a45] text-[#d1d4dc] rounded-lg font-semibold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Sliders className="w-3.5 h-3.5 text-[#2962ff]" />
+                    <span>{isKm ? 'បើកបញ្ជី Indicators ទាំងអស់' : 'Browse Built-in Catalog'}</span>
+                  </button>
+                )}
+
                 <button
+                  type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText(SAMPLE_PINE_SCRIPT);
+                    navigator.clipboard.writeText(pineSourceCode);
                     setCopiedPine(true);
                     setTimeout(() => setCopiedPine(false), 2000);
                   }}
-                  className="px-3 py-1 bg-[#2a2e39] hover:bg-[#363a45] text-white text-xs rounded font-medium flex items-center gap-1.5 transition-colors"
+                  className="px-3 py-1.5 bg-[#2a2e39] hover:bg-[#363a45] text-white rounded-lg font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   {copiedPine ? <Check className="w-3.5 h-3.5 text-[#089981]" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedPine ? (isKm ? 'បានចម្លង!' : 'Copied!') : (isKm ? 'ចម្លងកូដ' : 'Copy Script')}</span>
                 </button>
+
+                {onAddIndicator && (
+                  <button
+                    type="button"
+                    onClick={handleCompileAndAddPineIndicator}
+                    className="px-4 py-1.5 bg-[#089981] hover:bg-[#06806b] text-white rounded-lg font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{isKm ? '+ បន្ថែមចូលក្រាហ្វ TradingView' : '+ Add to Chart'}</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            <pre className="p-4 bg-[#131722] rounded-lg border border-[#2a2e39] text-xs text-[#22ab94] font-mono overflow-x-auto max-h-56 leading-relaxed">
-              {SAMPLE_PINE_SCRIPT}
-            </pre>
+            {pineCompiledNotice && (
+              <div className="px-3.5 py-2 rounded-lg bg-[#089981]/15 border border-[#089981]/40 text-[#22ab94] font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{pineCompiledNotice}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+              <div>
+                <label className="block text-[10px] text-[#787b86] mb-1">
+                  {isKm ? 'ឈ្មោះ Indicator' : 'Indicator Name'}
+                </label>
+                <input
+                  type="text"
+                  value={pineTitle}
+                  onChange={e => setPineTitle(e.target.value)}
+                  className="w-full bg-[#131722] border border-[#2a2e39] rounded-lg px-2.5 py-1.5 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-[#787b86] mb-1">
+                  {isKm ? 'ឈ្មោះកាត់ (Short Label)' : 'Short Label'}
+                </label>
+                <input
+                  type="text"
+                  value={pineShortName}
+                  onChange={e => setPineShortName(e.target.value)}
+                  className="w-full bg-[#131722] border border-[#2a2e39] rounded-lg px-2.5 py-1.5 text-white font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-[#787b86] mb-1">
+                  {isKm ? 'ប្រភេទក្រាហ្វ TradingView' : 'Base TV Study'}
+                </label>
+                <select
+                  value={pineStudyId}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setPineStudyId(v);
+                    setPineIsOverlay(!v.includes('RSI') && !v.includes('MACD') && !v.includes('ATR'));
+                  }}
+                  className="w-full bg-[#131722] border border-[#2a2e39] rounded-lg px-2.5 py-1.5 text-white"
+                >
+                  <option value="STD;EMA">EMA Overlay</option>
+                  <option value="STD;SMA">SMA Overlay</option>
+                  <option value="STD;Bollinger_Bands">Bollinger Bands</option>
+                  <option value="STD;Supertrend">SuperTrend</option>
+                  <option value="STD;VWAP">VWAP</option>
+                  <option value="STD;Pivot%1Points%1Standard">Pivot / SMC Levels</option>
+                  <option value="STD;RSI">RSI Sub-Pane</option>
+                  <option value="STD;MACD">MACD Sub-Pane</option>
+                  <option value="">Custom HUD Only</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-[#787b86] mb-1">
+                  Period & Color
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={pinePeriod}
+                    onChange={e => setPinePeriod(parseInt(e.target.value, 10) || 20)}
+                    className="w-full bg-[#131722] border border-[#2a2e39] rounded-lg px-2.5 py-1.5 text-white font-mono tabular-nums"
+                  />
+                  <input
+                    type="color"
+                    value={pineColor}
+                    onChange={e => setPineColor(e.target.value)}
+                    className="w-8 h-8 rounded bg-transparent border-0 cursor-pointer shrink-0"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-end">
+                <label className="w-full px-2.5 py-1.5 rounded-lg bg-[#131722] border border-[#2a2e39] flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={pineVipVisible}
+                    onChange={e => setPineVipVisible(e.target.checked)}
+                    className="accent-[#2962ff]"
+                  />
+                  <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="text-[11px] text-white truncate">
+                    {isKm ? 'បង្ហាញលើ VIP Chart' : 'Show to VIP'}
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <textarea
+              rows={7}
+              value={pineSourceCode}
+              onChange={e => setPineSourceCode(e.target.value)}
+              className="w-full p-3.5 bg-[#131722] rounded-lg border border-[#2a2e39] text-xs text-[#22ab94] font-mono leading-relaxed focus:outline-none focus:border-[#2962ff]"
+            />
           </div>
         )}
 
@@ -768,9 +1014,18 @@ export const TradingViewWebhookSimulator: React.FC<TradingViewWebhookSimulatorPr
                         !isAdmin ? 'opacity-70 cursor-not-allowed' : ''
                       }`}
                     >
-                      <option value="AlphaSignal EMA Cloud Breakout v5">AlphaSignal EMA Cloud v5</option>
-                      <option value="OrderBlock Liquidity Sweep">OrderBlock Liquidity Sweep</option>
-                      <option value="RSI Multi-Timeframe Divergence">RSI Divergence Strategy</option>
+                      <optgroup label={isKm ? 'Indicators បានបន្ថែមដោយ Administrator' : 'Administrator Active Indicators'}>
+                        {resolvedIndicators.map(ind => (
+                          <option key={ind.id} value={ind.name}>
+                            {ind.shortName} — {ind.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label={isKm ? 'យុទ្ធសាស្ត្រស្តង់ដារ' : 'Built-in Strategies'}>
+                        <option value="AlphaSignal EMA Cloud Breakout v5">AlphaSignal EMA Cloud v5</option>
+                        <option value="OrderBlock Liquidity Sweep">OrderBlock Liquidity Sweep</option>
+                        <option value="RSI Multi-Timeframe Divergence">RSI Divergence Strategy</option>
+                      </optgroup>
                     </select>
                   </div>
                 </div>
@@ -1041,6 +1296,20 @@ export const TradingViewWebhookSimulator: React.FC<TradingViewWebhookSimulatorPr
             </div>
           </div>
         </div>
+      )}
+
+      {/* 6. Administrator TradingView Indicator Catalog & Pine Script Modal */}
+      {isAdmin && onAddIndicator && onUpdateIndicator && onDeleteIndicator && (
+        <TradingViewIndicatorModal
+          isOpen={isIndicatorModalOpen}
+          onClose={() => setIsIndicatorModalOpen(false)}
+          lang={lang}
+          indicators={resolvedIndicators}
+          onAddIndicator={onAddIndicator}
+          onUpdateIndicator={onUpdateIndicator}
+          onDeleteIndicator={onDeleteIndicator}
+          adminActorLabel={adminActorLabel}
+        />
       )}
     </div>
   );

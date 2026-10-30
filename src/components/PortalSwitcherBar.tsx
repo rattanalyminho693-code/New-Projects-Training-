@@ -218,7 +218,7 @@ export const PortalSwitcherBar: React.FC<PortalSwitcherBarProps> = ({
                   }`}
                 >
                   <Cpu className="w-3.5 h-3.5" />
-                  <span>Webhook API</span>
+                  <span>{isKm ? 'TradingView & Indicators' : 'TradingView & Indicators'}</span>
                 </button>
               </div>
 

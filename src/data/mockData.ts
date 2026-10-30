@@ -16,7 +16,9 @@ import {
   FinanceLedgerEntry,
   HRRequestItem,
   VideoProductionTask,
-  CustomerRegistrationRecord
+  CustomerRegistrationRecord,
+  TradingViewIndicator,
+  TradingViewIndicatorCategory
 } from '../types';
 
 export const INITIAL_PLANS: MembershipPlan[] = [
@@ -462,6 +464,367 @@ alertMessageBuy = '{"secret": "TV_SECRET_PRO_2026", "ticker": "' + syminfo.ticke
 if (bullishCross)
     alert(alertMessageBuy, alert.freq_once_per_bar_close)
 `;
+
+export interface TvIndicatorCatalogTemplate {
+  code: string;
+  name: string;
+  nameKm: string;
+  shortName: string;
+  category: TradingViewIndicatorCategory;
+  tvStudyId?: string;
+  isOverlay: boolean;
+  defaultPeriod?: number;
+  defaultSecondaryPeriod?: number;
+  defaultMultiplier?: number;
+  defaultColor: string;
+  description: string;
+  descriptionKm: string;
+  pineTemplate?: string;
+}
+
+export const TV_BUILTIN_INDICATOR_CATALOG: TvIndicatorCatalogTemplate[] = [
+  {
+    code: 'EMA',
+    name: 'Moving Average Exponential (EMA)',
+    nameKm: 'ខ្សែមធ្យមភាគអិចស្ប៉ូណង់ស្យែល (EMA)',
+    shortName: 'EMA',
+    category: 'trend',
+    tvStudyId: 'STD;EMA',
+    isOverlay: true,
+    defaultPeriod: 20,
+    defaultColor: '#2962ff',
+    description: 'Exponential weighted moving average for fast trend & dynamic support/resistance.',
+    descriptionKm: 'ខ្សែមធ្យមភាគចាប់ទិសដៅទីផ្សាររហ័ស និងតំបន់ទប់/ច្រានឌីណាមិក។'
+  },
+  {
+    code: 'SMA',
+    name: 'Moving Average Simple (SMA)',
+    nameKm: 'ខ្សែមធ្យមភាគធម្មតា (SMA)',
+    shortName: 'SMA',
+    category: 'trend',
+    tvStudyId: 'STD;SMA',
+    isOverlay: true,
+    defaultPeriod: 50,
+    defaultColor: '#f5a623',
+    description: 'Classic institutional simple moving average for macro trend bias.',
+    descriptionKm: 'ខ្សែមធ្យមភាគស្តង់ដាររបស់ស្ថាប័នហិរញ្ញវត្ថុសម្រាប់មើលនិន្នាការធំ។'
+  },
+  {
+    code: 'WMA',
+    name: 'Moving Average Weighted (WMA)',
+    nameKm: 'ខ្សែមធ្យមភាគទម្ងន់ (WMA)',
+    shortName: 'WMA',
+    category: 'trend',
+    tvStudyId: 'STD;WMA',
+    isOverlay: true,
+    defaultPeriod: 34,
+    defaultColor: '#38bdf8',
+    description: 'Linearly weighted moving average prioritizing recent candle closes.',
+    descriptionKm: 'ផ្តល់ទម្ងន់ខ្ពស់លើតម្លៃទៀនចុងក្រោយសម្រាប់ចាប់រលក Scalping។'
+  },
+  {
+    code: 'SUPERTREND',
+    name: 'SuperTrend (ATR Trend)',
+    nameKm: 'សន្ទស្សន៍ប្តូរទិសដៅ SuperTrend',
+    shortName: 'SuperTrend',
+    category: 'trend',
+    tvStudyId: 'STD;Supertrend',
+    isOverlay: true,
+    defaultPeriod: 10,
+    defaultMultiplier: 3,
+    defaultColor: '#089981',
+    description: 'ATR volatility-adjusted trend reversal line with trailing stop zones.',
+    descriptionKm: 'បង្ហាញចំណុចប្តូរទិសដៅទិញ/លក់ និងខ្សែ Trailing Stop តាមកម្រិត ATR។'
+  },
+  {
+    code: 'ICHIMOKU',
+    name: 'Ichimoku Cloud',
+    nameKm: 'ពពក Ichimoku Cloud',
+    shortName: 'Ichimoku',
+    category: 'trend',
+    tvStudyId: 'STD;Ichimoku%1Cloud',
+    isOverlay: true,
+    defaultPeriod: 9,
+    defaultSecondaryPeriod: 26,
+    defaultColor: '#a855f7',
+    description: 'Multi-component equilibrium cloud for momentum, trend, and key Kumo levels.',
+    descriptionKm: 'ប្រព័ន្ធពពក Kumo សម្រាប់វាស់កម្លាំងទីផ្សារ និងតំបន់តុល្យភាពតម្លៃ។'
+  },
+  {
+    code: 'PSAR',
+    name: 'Parabolic SAR',
+    nameKm: 'ចំណុចត្រឡប់ទិស Parabolic SAR',
+    shortName: 'PSAR',
+    category: 'trend',
+    tvStudyId: 'STD;PSAR',
+    isOverlay: true,
+    defaultPeriod: 2,
+    defaultMultiplier: 0.2,
+    defaultColor: '#ec4899',
+    description: 'Stop-and-reverse dots tracking momentum exhaustion.',
+    descriptionKm: 'ចំណុចគ្រាប់ៗតាមដានការអស់កម្លាំងនៃរលកតម្លៃ និងកំណត់ Stop Loss។'
+  },
+  {
+    code: 'BB',
+    name: 'Bollinger Bands (BB)',
+    nameKm: 'កម្រិតច្រកតម្លៃ Bollinger Bands',
+    shortName: 'BB',
+    category: 'volatility',
+    tvStudyId: 'STD;Bollinger_Bands',
+    isOverlay: true,
+    defaultPeriod: 20,
+    defaultMultiplier: 2,
+    defaultColor: '#06b6d4',
+    description: 'Standard deviation volatility envelope around a 20-period basis.',
+    descriptionKm: 'វាស់ការរួមតូច និងការផ្ទុះឡើងនៃតម្លៃ (Volatility Squeeze & Breakout)។'
+  },
+  {
+    code: 'KC',
+    name: 'Keltner Channels (KC)',
+    nameKm: 'ប៉ុស្តិ៍តម្លៃ Keltner Channels',
+    shortName: 'KC',
+    category: 'volatility',
+    tvStudyId: 'STD;Keltner_Channels',
+    isOverlay: true,
+    defaultPeriod: 20,
+    defaultMultiplier: 2,
+    defaultColor: '#3b82f6',
+    description: 'ATR-based volatility channel ideal for Gold & US30 breakouts.',
+    descriptionKm: 'ប៉ុស្តិ៍ចលនាតម្លៃផ្អែកលើ ATR ស័ក្តិសមបំផុតសម្រាប់ជួញដូរមាស XAUUSD។'
+  },
+  {
+    code: 'DC',
+    name: 'Donchian Channels',
+    nameKm: 'ប៉ុស្តិ៍ Donchian Breakout',
+    shortName: 'Donchian',
+    category: 'volatility',
+    tvStudyId: 'STD;Donchian_Channels',
+    isOverlay: true,
+    defaultPeriod: 20,
+    defaultColor: '#14b8a6',
+    description: 'Highest high and lowest low channel for liquidity sweep & breakout entries.',
+    descriptionKm: 'កំណត់កំពូលខ្ពស់បំផុត និងបាតទាបបំផុតសម្រាប់ចាប់ Liquidity Sweep។'
+  },
+  {
+    code: 'ATR',
+    name: 'Average True Range (ATR)',
+    nameKm: 'កម្រិតលំយោលតម្លៃមធ្យម (ATR)',
+    shortName: 'ATR',
+    category: 'volatility',
+    tvStudyId: 'STD;ATR',
+    isOverlay: false,
+    defaultPeriod: 14,
+    defaultColor: '#f97316',
+    description: 'Measures real candle range volatility to size Stop Loss & Take Profit.',
+    descriptionKm: 'វាស់ទំហំលំយោលទៀនជាក់ស្តែង ដើម្បីគណនាចម្ងាយ SL និង TP ឱ្យច្បាស់លាស់។'
+  },
+  {
+    code: 'RSI',
+    name: 'Relative Strength Index (RSI)',
+    nameKm: 'សន្ទស្សន៍កម្លាំងធៀប (RSI)',
+    shortName: 'RSI',
+    category: 'oscillator',
+    tvStudyId: 'STD;RSI',
+    isOverlay: false,
+    defaultPeriod: 14,
+    defaultColor: '#a855f7',
+    description: 'Momentum oscillator identifying Overbought (>70), Oversold (<30), and Divergences.',
+    descriptionKm: 'វាស់សន្ទុះទិញហួសកម្រិត (>70) លក់ហួសកម្រិត (<30) និងសញ្ញា Divergence។'
+  },
+  {
+    code: 'MACD',
+    name: 'MACD (12, 26, 9)',
+    nameKm: 'សន្ទស្សន៍ MACD Histogram',
+    shortName: 'MACD',
+    category: 'oscillator',
+    tvStudyId: 'STD;MACD',
+    isOverlay: false,
+    defaultPeriod: 12,
+    defaultSecondaryPeriod: 26,
+    defaultMultiplier: 9,
+    defaultColor: '#2962ff',
+    description: 'Trend-following momentum histogram and signal line crossover.',
+    descriptionKm: 'តាមដានកម្លាំងរុញច្រាន និងចំណុចកាត់គ្នានៃខ្សែ Signal និង Histogram។'
+  },
+  {
+    code: 'STOCH_RSI',
+    name: 'Stochastic RSI',
+    nameKm: 'សន្ទស្សន៍ Stochastic RSI',
+    shortName: 'Stoch RSI',
+    category: 'oscillator',
+    tvStudyId: 'STD;Stochastic_RSI',
+    isOverlay: false,
+    defaultPeriod: 14,
+    defaultSecondaryPeriod: 3,
+    defaultColor: '#eab308',
+    description: 'High-sensitivity oscillator for fast M5/M15 scalping entries.',
+    descriptionKm: 'រសើបរហ័សសម្រាប់រកចំណុចចូល Scalping លើ Timeframe 5m និង 15m។'
+  },
+  {
+    code: 'ADX',
+    name: 'Average Directional Index (ADX)',
+    nameKm: 'សន្ទស្សន៍កម្លាំងនិន្នាការ (ADX)',
+    shortName: 'ADX',
+    category: 'oscillator',
+    tvStudyId: 'STD;ADX',
+    isOverlay: false,
+    defaultPeriod: 14,
+    defaultColor: '#f43f5e',
+    description: 'Quantifies trend strength (>25 strong trend, <20 ranging market).',
+    descriptionKm: 'វាស់ថាទីផ្សារមាន Trend ខ្លាំង (>25) ឬកំពុងរត់កៀប Sideway (<20)។'
+  },
+  {
+    code: 'CCI',
+    name: 'Commodity Channel Index (CCI)',
+    nameKm: 'សន្ទស្សន៍ទំនិញ & មាស (CCI)',
+    shortName: 'CCI',
+    category: 'oscillator',
+    tvStudyId: 'STD;CCI',
+    isOverlay: false,
+    defaultPeriod: 20,
+    defaultColor: '#10b981',
+    description: 'Cyclical momentum gauge widely used for Gold (XAUUSD) extremes.',
+    descriptionKm: 'វាស់វដ្តតម្លៃមាស XAUUSD ពេលឡើងដល់កំពូល ឬចុះដល់បាតខ្លាំង។'
+  },
+  {
+    code: 'VWAP',
+    name: 'VWAP (Volume Weighted Avg Price)',
+    nameKm: 'តម្លៃមធ្យមថ្លឹងតាមទំហំជួញដូរ (VWAP)',
+    shortName: 'VWAP',
+    category: 'volume_smc',
+    tvStudyId: 'STD;VWAP',
+    isOverlay: true,
+    defaultColor: '#eab308',
+    description: 'Institutional intraday benchmark price weighted by traded volume.',
+    descriptionKm: 'ខ្សែតម្លៃយោងរបស់ធនាគារ និងស្ថាប័នធំៗប្រចាំថ្ងៃតាមទំហំ Volume។'
+  },
+  {
+    code: 'PIVOT',
+    name: 'Pivot Points Standard (R1/R2/S1/S2)',
+    nameKm: 'ចំណុច Pivot Points ស្តង់ដារ (S/R)',
+    shortName: 'Pivots',
+    category: 'volume_smc',
+    tvStudyId: 'STD;Pivot%1Points%1Standard',
+    isOverlay: true,
+    defaultColor: '#f59e0b',
+    description: 'Automatic daily/session Pivot, Support (S1-S3) and Resistance (R1-R3) levels.',
+    descriptionKm: 'គូសបន្ទាត់ Support (S1-S3) និង Resistance (R1-R3) ប្រចាំថ្ងៃដោយស្វ័យប្រវត្តិ។'
+  },
+  {
+    code: 'OBV',
+    name: 'On Balance Volume (OBV)',
+    nameKm: 'សន្ទស្សន៍លំហូរទុន Volume (OBV)',
+    shortName: 'OBV',
+    category: 'volume_smc',
+    tvStudyId: 'STD;OBV',
+    isOverlay: false,
+    defaultColor: '#0ea5e9',
+    description: 'Cumulative buying and selling volume pressure tracker.',
+    descriptionKm: 'តាមដានលំហូរទឹកប្រាក់ទិញចូល និងលក់ចេញសរុបនៅលើទីផ្សារ។'
+  },
+  {
+    code: 'SMC_PINE',
+    name: 'AlphaSignal SMC OrderBlock & FVG (Pine v5)',
+    nameKm: 'AlphaSignal SMC OrderBlock & FVG (Pine v5)',
+    shortName: 'SMC OB',
+    category: 'custom_pine',
+    tvStudyId: 'STD;Pivot%1Points%1Standard',
+    isOverlay: true,
+    defaultPeriod: 15,
+    defaultMultiplier: 1.5,
+    defaultColor: '#089981',
+    description: 'Custom Administrator Pine Script v5 marking institutional Order Blocks, BOS & Liquidity Zones.',
+    descriptionKm: 'Pine Script ផ្តាច់មុខរបស់ Administrator សម្រាប់ចាប់ Order Block, FVG និង Liquidity Sweep។',
+    pineTemplate: `//@version=5
+indicator("AlphaSignal SMC OrderBlock & FVG v5", overlay=true)
+swingLen = input.int(15, "Swing Liquidity Lookback")
+atrMult  = input.float(1.5, "OrderBlock ATR Filter")
+atrVal   = ta.atr(14)
+
+bullOB = low < ta.lowest(low, swingLen)[1] and close > open
+bearOB = high > ta.highest(high, swingLen)[1] and close < open
+
+plotshape(bullOB, title="Bullish OB", style=shape.labelup, location=location.belowbar, color=color.new(#089981, 0), text="OB BUY", textcolor=color.white)
+plotshape(bearOB, title="Bearish OB", style=shape.labeldown, location=location.abovebar, color=color.new(#f23645, 0), text="OB SELL", textcolor=color.white)`
+  }
+];
+
+export const INITIAL_TV_INDICATORS: TradingViewIndicator[] = [
+  {
+    id: 'ind_ema_20',
+    name: 'Moving Average Exponential (EMA 20)',
+    nameKm: 'ខ្សែមធ្យមភាគ EMA 20',
+    shortName: 'EMA 20',
+    category: 'trend',
+    tvStudyId: 'STD;EMA',
+    isOverlay: true,
+    period: 20,
+    source: 'close',
+    color: '#2962ff',
+    active: true,
+    vipVisible: true,
+    description: 'Fast dynamic trend line on M15 / H1 setups.',
+    descriptionKm: 'ខ្សែទិសដៅរហ័សសម្រាប់ចាប់ចំណុចចូល M15 និង H1។',
+    createdBy: 'ADM-001 (Master Sovann)',
+    createdAt: '2026-10-20'
+  },
+  {
+    id: 'ind_ema_50',
+    name: 'Moving Average Exponential (EMA 50)',
+    nameKm: 'ខ្សែមធ្យមភាគ EMA 50',
+    shortName: 'EMA 50',
+    category: 'trend',
+    tvStudyId: 'STD;EMA',
+    isOverlay: true,
+    period: 50,
+    source: 'close',
+    color: '#f5a623',
+    active: true,
+    vipVisible: true,
+    description: 'Medium-term institutional trend filter.',
+    descriptionKm: 'ខ្សែចម្រោះទិសដៅមធ្យមសម្រាប់ផ្ទៀងផ្ទាត់ Golden Cross។',
+    createdBy: 'ADM-001 (Master Sovann)',
+    createdAt: '2026-10-20'
+  },
+  {
+    id: 'ind_rsi_14',
+    name: 'Relative Strength Index (RSI 14)',
+    nameKm: 'សន្ទស្សន៍កម្លាំងធៀប RSI 14',
+    shortName: 'RSI 14',
+    category: 'oscillator',
+    tvStudyId: 'STD;RSI',
+    isOverlay: false,
+    period: 14,
+    source: 'close',
+    color: '#a855f7',
+    active: true,
+    vipVisible: true,
+    description: 'Momentum confirmation & divergence check.',
+    descriptionKm: 'ផ្ទៀងផ្ទាត់សន្ទុះទីផ្សារ និងសញ្ញា Divergence មុនចូលទីផ្សារ។',
+    createdBy: 'ADM-001 (Master Sovann)',
+    createdAt: '2026-10-21'
+  },
+  {
+    id: 'ind_smc_ob',
+    name: 'AlphaSignal SMC OrderBlock & FVG v5',
+    nameKm: 'AlphaSignal SMC OrderBlock & FVG v5',
+    shortName: 'SMC OB v5',
+    category: 'custom_pine',
+    tvStudyId: 'STD;Pivot%1Points%1Standard',
+    isOverlay: true,
+    period: 15,
+    multiplier: 1.5,
+    source: 'close',
+    color: '#089981',
+    active: false,
+    vipVisible: false,
+    pineScript: SAMPLE_PINE_SCRIPT,
+    description: 'Administrator custom Pine Script v5 liquidity & order block engine.',
+    descriptionKm: 'កូដ Pine Script v5 របស់ Administrator សម្រាប់វិភាគតំបន់ Order Block។',
+    createdBy: 'ADM-001 (Master Sovann)',
+    createdAt: '2026-10-25'
+  }
+];
 
 export const DEFAULT_MT5_CONFIG: MT5Config = {
   autoTradeEnabled: true,

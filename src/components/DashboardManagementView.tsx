@@ -19,12 +19,15 @@ import {
   MT5Config,
   MT5Position,
   MT5ExecutionLog,
-  CustomerRegistrationRecord
+  CustomerRegistrationRecord,
+  TradingViewIndicator,
+  WebhookLog
 } from '../types';
 import { POSITION_DEFINITIONS, DEFAULT_MT5_CONFIG } from '../data/mockData';
 import { CustomerPaymentTable } from './CustomerPaymentTable';
 import { CustomerSignupAssignmentPanel } from './CustomerSignupAssignmentPanel';
 import { MT5AutoTradingEngineView } from './MT5AutoTradingModal';
+import { TradingViewWebhookSimulator } from './TradingViewWebhookSimulator';
 import {
   LayoutDashboard,
   KeyRound,
@@ -161,6 +164,12 @@ interface DashboardManagementViewProps {
     staffCheckNote: string,
     upgradeToVip: boolean
   ) => void;
+  tvIndicators?: TradingViewIndicator[];
+  onAddTvIndicator?: (indicator: Omit<TradingViewIndicator, 'id' | 'createdAt'>) => void;
+  onUpdateTvIndicator?: (id: string, updates: Partial<TradingViewIndicator>) => void;
+  onDeleteTvIndicator?: (id: string) => void;
+  webhookLogs?: WebhookLog[];
+  onAddWebhookLog?: (log: WebhookLog) => void;
 }
 
 export type ErpNavKey =
@@ -171,6 +180,7 @@ export type ErpNavKey =
   | 'accounts_ledger'
   | 'customers'
   | 'signals_desk'
+  | 'tradingview_desk'
   | 'mt5_bot'
   | 'video_studio'
   | 'reports'
@@ -291,7 +301,13 @@ export const DashboardManagementView: React.FC<DashboardManagementViewProps> = (
   initialNav = 'dashboard',
   customerRegistrations = [],
   onAssignRegistrationToStaff = () => {},
-  onCompleteStaffCheck = () => {}
+  onCompleteStaffCheck = () => {},
+  tvIndicators,
+  onAddTvIndicator,
+  onUpdateTvIndicator,
+  onDeleteTvIndicator,
+  webhookLogs = [],
+  onAddWebhookLog = () => {}
 }) => {
   const isKm = lang === 'km';
 
@@ -463,6 +479,8 @@ export const DashboardManagementView: React.FC<DashboardManagementViewProps> = (
         return true;
       case 'signals_desk':
         return perms.includes('editorial_signals');
+      case 'tradingview_desk':
+        return perms.includes('editorial_signals') || perms.includes('system_security');
       case 'mt5_bot':
         return (
           perms.includes('editorial_signals') ||
@@ -1200,6 +1218,14 @@ export const DashboardManagementView: React.FC<DashboardManagementViewProps> = (
       labelKm: 'គ្រប់គ្រង Signal',
       icon: Radio,
       iconColor: 'text-emerald-400'
+    },
+    {
+      key: 'tradingview_desk',
+      labelEn: 'TradingView & Indicators',
+      labelKm: 'TradingView & Indicators',
+      icon: TrendingUp,
+      iconColor: 'text-sky-400',
+      badge: tvIndicators ? tvIndicators.filter(i => i.active).length : undefined
     },
     {
       key: 'mt5_bot',
@@ -3494,9 +3520,21 @@ export const DashboardManagementView: React.FC<DashboardManagementViewProps> = (
             <div className="space-y-4">
               <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
                 <div className="xl:col-span-6 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
-                  <h3 className="text-base font-bold text-slate-900 border-b border-slate-100 pb-3">
-                    {isKm ? 'ផ្សាយ Signal ជួញដូរថ្មី (Editor Desk)' : 'Broadcast New VIP Signal'}
-                  </h3>
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <h3 className="text-base font-bold text-slate-900">
+                      {isKm ? 'ផ្សាយ Signal ជួញដូរថ្មី (Editor Desk)' : 'Broadcast New VIP Signal'}
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setActiveNav('tradingview_desk')}
+                      className="px-3 py-1.5 rounded-xl bg-[#131722] hover:bg-[#1e222d] text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <TrendingUp className="w-3.5 h-3.5 text-[#2962ff]" />
+                      <span>
+                        {isKm ? 'បើក TradingView & Indicators' : 'TradingView & Indicators'}
+                      </span>
+                    </button>
+                  </div>
 
                   {sigBroadcastToast && (
                     <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-700 font-medium">
@@ -4553,6 +4591,75 @@ export const DashboardManagementView: React.FC<DashboardManagementViewProps> = (
               onSimulateTestOrder={onSimulateMT5TestOrder}
               embedded={true}
             />
+          )}
+
+          {/* ==================== VIEW 10.8: TRADINGVIEW & ADMINISTRATOR INDICATORS ==================== */}
+          {activeNav === 'tradingview_desk' && canAccessNav('tradingview_desk') && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-3.5 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-[#2962ff]" />
+                    <span>
+                      {isKm
+                        ? 'មជ្ឈមណ្ឌលក្រាហ្វ TradingView & ការគ្រប់គ្រង Indicators (Administrator)'
+                        : 'TradingView Charting & Administrator Indicator Management'}
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {loggedInStaff.position === 'administrator'
+                      ? isKm
+                        ? `អ្នកកំពុងចូលជា Administrator (${loggedInStaff.staffCode}) — មានសិទ្ធិពេញលេញក្នុងការបន្ថែម Technical Indicators និងបង្កើតកូដ Pine Script v5 ថ្មី។`
+                        : `Signed in as Administrator (${loggedInStaff.staffCode}) — Full permission to add, edit, and attach TradingView Indicators.`
+                      : isKm
+                      ? 'សម្រាប់មុខតំណែងក្រៅពី Administrator អាចមើលក្រាហ្វ និងបាញ់ Signal ប៉ុន្តែមិនអាចបន្ថែម ឬកែប្រែ Indicator បានទេ។'
+                      : 'Only Administrators can add or modify TradingView Indicators.'}
+                  </p>
+                </div>
+
+                {loggedInStaff.position !== 'administrator' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const adminAcc = staffAccounts.find(
+                        s => s.position === 'administrator' && s.status === 'active'
+                      );
+                      if (adminAcc) {
+                        onLoginStaff(adminAcc.staffCode, adminAcc.password, 'administrator');
+                      }
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-[#091738] hover:bg-blue-900 text-white text-xs font-bold cursor-pointer whitespace-nowrap"
+                  >
+                    {isKm ? 'ចូលជា Administrator (ADM-001)' : 'Sign In as Administrator'}
+                  </button>
+                )}
+              </div>
+
+              <TradingViewWebhookSimulator
+                lang={lang}
+                onDispatchSignal={onBroadcastSignal}
+                webhookSecret={webhookSecret}
+                duplicateWindowSeconds={duplicateWindowSeconds}
+                recentSignals={signals}
+                logs={webhookLogs}
+                onAddLog={onAddWebhookLog}
+                isAdmin={loggedInStaff.position === 'administrator'}
+                indicators={tvIndicators}
+                onAddIndicator={onAddTvIndicator}
+                onUpdateIndicator={onUpdateTvIndicator}
+                onDeleteIndicator={onDeleteTvIndicator}
+                adminActorLabel={`${loggedInStaff.staffCode} (${loggedInStaff.fullName})`}
+                nonAdminStaffLabel={`${loggedInStaff.staffCode} · ${POSITION_DEFINITIONS[loggedInStaff.position].shortTitle}`}
+                onQuickSwitchToAdmin={() => {
+                  const adminAcc = staffAccounts.find(
+                    s => s.position === 'administrator' && s.status === 'active'
+                  );
+                  if (adminAcc) {
+                    onLoginStaff(adminAcc.staffCode, adminAcc.password, 'administrator');
+                  }
+                }}
+              />
+            </div>
           )}
 
           {/* ==================== VIEW 11: SETTINGS & WEBHOOK / MT5 ==================== */}

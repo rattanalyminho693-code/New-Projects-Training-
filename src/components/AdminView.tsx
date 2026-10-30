@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Language, PaymentRecord, Role, SignalStatus, TradingSignal, UserAccount, VideoLesson, LessonCategory, CustomerRegistrationRecord, StaffAccount } from '../types';
+import { Language, PaymentRecord, Role, SignalStatus, TradingSignal, UserAccount, VideoLesson, LessonCategory, CustomerRegistrationRecord, StaffAccount, TradingViewIndicator, WebhookLog } from '../types';
 import { CustomerPaymentTable } from './CustomerPaymentTable';
 import { CustomerSignupAssignmentPanel } from './CustomerSignupAssignmentPanel';
+import { TradingViewWebhookSimulator } from './TradingViewWebhookSimulator';
 import { 
   LayoutDashboard,
   ShieldAlert, 
@@ -87,6 +88,15 @@ interface AdminViewProps {
     staffCheckNote: string,
     upgradeToVip: boolean
   ) => void;
+  isAdministrator?: boolean;
+  adminActorLabel?: string;
+  nonAdminStaffLabel?: string;
+  tvIndicators?: TradingViewIndicator[];
+  onAddTvIndicator?: (indicator: Omit<TradingViewIndicator, 'id' | 'createdAt'>) => void;
+  onUpdateTvIndicator?: (id: string, updates: Partial<TradingViewIndicator>) => void;
+  onDeleteTvIndicator?: (id: string) => void;
+  webhookLogs?: WebhookLog[];
+  onAddWebhookLog?: (log: WebhookLog) => void;
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({
@@ -121,12 +131,21 @@ export const AdminView: React.FC<AdminViewProps> = ({
   customerRegistrations = [],
   staffAccounts = [],
   onAssignRegistrationToStaff = () => {},
-  onCompleteStaffCheck = () => {}
+  onCompleteStaffCheck = () => {},
+  isAdministrator = true,
+  adminActorLabel = 'ADM-001 (Administrator)',
+  nonAdminStaffLabel,
+  tvIndicators,
+  onAddTvIndicator,
+  onUpdateTvIndicator,
+  onDeleteTvIndicator,
+  webhookLogs = [],
+  onAddWebhookLog = () => {}
 }) => {
   const isKm = lang === 'km';
 
   // Admin tabs
-  const [adminTab, setAdminTab] = useState<'overview' | 'signups' | 'payments' | 'members' | 'signals' | 'broadcast' | 'lessons' | 'settings'>('signups');
+  const [adminTab, setAdminTab] = useState<'overview' | 'signups' | 'payments' | 'members' | 'signals' | 'broadcast' | 'tradingview' | 'lessons' | 'settings'>('signups');
   const [confirmDeleteLessonId, setConfirmDeleteLessonId] = useState<string | null>(null);
 
   // Video Lesson Form State
@@ -411,6 +430,24 @@ export const AdminView: React.FC<AdminViewProps> = ({
           >
             <Radio className="w-3.5 h-3.5" />
             <span>{isKm ? 'បញ្ជូន Signal ផ្ទាល់' : 'Broadcast Signal'}</span>
+          </button>
+
+          {/* Tab: TradingView & Indicators (Administrator) */}
+          <button
+            onClick={() => setAdminTab('tradingview')}
+            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-colors cursor-pointer flex items-center gap-2 ${
+              adminTab === 'tradingview'
+                ? 'bg-[#2962ff] text-white font-bold shadow-sm'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>{isKm ? 'TradingView & Indicators' : 'TradingView & Indicators'}</span>
+            {tvIndicators && (
+              <span className="px-1.5 py-0.2 bg-sky-500/20 text-sky-300 text-[10px] rounded font-mono tabular-nums font-bold">
+                {tvIndicators.filter(i => i.active).length}
+              </span>
+            )}
           </button>
 
           {/* Tab: Video Lessons Management */}
@@ -1694,6 +1731,26 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* TradingView & Administrator Indicators Tab */}
+      {adminTab === 'tradingview' && (
+        <TradingViewWebhookSimulator
+          lang={lang}
+          onDispatchSignal={onBroadcastManualSignal}
+          webhookSecret={webhookSecret}
+          duplicateWindowSeconds={duplicateWindowSeconds}
+          recentSignals={signals}
+          logs={webhookLogs}
+          onAddLog={onAddWebhookLog}
+          isAdmin={isAdministrator}
+          indicators={tvIndicators}
+          onAddIndicator={onAddTvIndicator}
+          onUpdateIndicator={onUpdateTvIndicator}
+          onDeleteIndicator={onDeleteTvIndicator}
+          adminActorLabel={adminActorLabel}
+          nonAdminStaffLabel={nonAdminStaffLabel}
+        />
       )}
 
       {/* Slip Modal View */}

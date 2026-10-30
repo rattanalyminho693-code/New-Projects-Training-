@@ -1,0 +1,8 @@
+{
+  "name": "Remix Remix AlphaSignal VIP - TradingView Signal \u0026 Membership System",
+  "description": "ប្រព័ន្ធគ្រប់គ្រង Signal ជួញដូរពី TradingView Webhook ជាមួយការផ្ទៀងផ្ទាត់ការបង់ប្រាក់ និងការបែងចែកសិទ្ធិ Visitor, Member, VIP Member, Admin",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
